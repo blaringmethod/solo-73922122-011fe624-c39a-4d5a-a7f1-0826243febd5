@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set gname = "甲组" if grp == "A" else "乙组" %}
+{% block title %}{{ gname }}登记{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{{ gname }}中签藏品著录复核登记</h2>
+  <p class="muted">
+    共 {{ rows|length }} 件中签，已登记 {{ filled }} 件。整表填写后一次保存；结论可随时更正，每次变更写入审计。
+  </p>
+  <form class="inline" method="post" action="{{ url_for('register_demo', grp=grp) }}">
+    <button class="secondary" type="submit">一键填入演示结论</button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('register_bulk', grp=grp) }}">
+    <table>
+      <tr>
+        <th style="width:110px">藏品编号</th>
+        <th>题名</th>
+        <th style="width:240px">结论</th>
+        <th style="width:280px">备注 / 更正说明</th>
+        <th style="width:110px">当前状态</th>
+      </tr>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r["catalog_id"] }}</td>
+        <td>{{ r["title"] }}</td>
+        <td class="radio-row">
+          <label><input type="radio" name="conc-{{ r['catalog_id'] }}" value="error" {{ "checked" if r["conclusion"] == "error" }}> 有误</label>
+          <label><input type="radio" name="conc-{{ r['catalog_id'] }}" value="ok" {{ "checked" if r["conclusion"] == "ok" }}> 无误</label>
+        </td>
+        <td><input type="text" name="note-{{ r['catalog_id'] }}" value="{{ r['note'] or '' }}" placeholder="依据、更正说明（可选）"></td>
+        <td>
+          {% if r["conclusion"] == "error" %}<span class="badge b-error">有误</span>
+          {% elif r["conclusion"] == "ok" %}<span class="badge b-ok">无误</span>
+          {% else %}<span class="badge b-pending">待登记</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    <p style="margin-top:14px">
+      <button type="submit">保存本页全部结论</button>
+      <span class="muted">未选择结论的藏品保持原状不变。</span>
+    </p>
+  </form>
+</div>
+{% endblock %}

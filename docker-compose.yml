@@ -1,0 +1,16 @@
+services:
+  review-app:
+    build: .
+    image: catalog-review-ht:latest
+    container_name: catalog-review-ht
+    ports:
+      - "8000:8000"
+    volumes:
+      - review-data:/data
+    environment:
+      APP_DB_PATH: /data/review.db
+      APP_SECRET_KEY: change-me-in-production
+    restart: unless-stopped
+
+volumes:
+  review-data:

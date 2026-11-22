@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}出数快照 #{{ snapshot["id"] }}{% endblock %}
+{% block content %}
+{% set r = payload.result %}
+<div class="card">
+  <h2>出数时点快照 #{{ snapshot["id"] }}</h2>
+  <dl class="kv">
+    <dt>出数时间（UTC）</dt><dd>{{ snapshot["taken_at"] }}</dd>
+    <dt>抽样设计</dt>
+    <dd>
+      甲组 N={{ payload.frame.N_a }}, n={{ payload.frame.n_a }}；
+      乙组 N={{ payload.frame.N_b }}, n={{ payload.frame.n_b }}；
+      并集 {{ payload.frame.union_size }} 件
+    </dd>
+    <dt>有误总数 HT 估计</dt><dd><span class="big">{{ "%.4f"|format(r.y_hat) }}</span> 件</dd>
+    <dt>估计方差</dt>
+    <dd>{{ "%.6f"|format(r.variance) }}
+      {% if not r.se_available %}<span class="na">（负值，标准误不可用）</span>{% endif %}
+    </dd>
+    <dt>抽样标准误</dt>
+    <dd>
+      {% if r.se_available %}{{ "%.4f"|format(r.se) }} 件
+      {% else %}<span class="na">不可用（估计方差为负）</span>{% endif %}
+    </dd>
+    {% if r.se_available %}
+    <dt>近似 95% 置信区间</dt><dd>[{{ "%.4f"|format(r.ci[0]) }}, {{ "%.4f"|format(r.ci[1]) }}]</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card">
+  <h2>时点登记结论（固化）</h2>
+  <table>
+    <tr><th>藏品编号</th><th>结论 y</th><th>π_i</th><th>HT 贡献</th></tr>
+    {% for cid in r.item_ids %}
+    <tr>
+      <td>{{ cid }}</td>
+      <td>{% if cid in r.flagged %}<span class="badge b-error">有误 (1)</span>{% else %}无误/未中签 (0){% endif %}</td>
+      <td>{{ "%.6f"|format(r.pi[cid]) }}</td>
+      <td>{{ "%.4f"|format(1.0 / r.pi[cid]) if cid in r.flagged else "0" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<p><a class="btn secondary" href="{{ url_for('index') }}">返回总览</a></p>
+{% endblock %}

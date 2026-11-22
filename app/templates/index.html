@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}总览 · 名录复核{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>流程总览</h2>
+  <dl class="kv">
+    <dt>锁定状态</dt>
+    <dd>
+      {% if locked %}
+        <span class="badge b-lock">已锁定（名录与中签号不可更改）</span>
+        <span class="muted">锁定时间：{{ meta["locked_at"] }}（UTC）</span>
+      {% else %}
+        <span class="badge b-pending">未锁定</span>
+        <span class="muted">首次导入后自动锁定</span>
+      {% endif %}
+    </dd>
+    {% if locked %}
+    <dt>名录规模</dt>
+    <dd>甲名录 {{ meta["n_a"] }} 件中签；乙名录 {{ meta["n_b"] }} 件中签；并集去重后共 {{ item_count }} 件</dd>
+    <dt>登记进度</dt>
+    <dd>
+      待登记/待核 <strong>{{ pending }}</strong> 条；
+      {% if conflict %}<span class="badge b-error">存在两组结论冲突</span>{% else %}<span class="badge b-ok">无冲突</span>{% endif %}
+    </dd>
+    {% endif %}
+  </dl>
+  <p style="margin-bottom:0">
+    {% if not locked %}
+      <a class="btn" href="{{ url_for('import_page') }}">开始导入</a>
+    {% else %}
+      <a class="btn" href="{{ url_for('review') }}">查看待核清单</a>
+      <a class="btn secondary" href="{{ url_for('results') }}">出数页面</a>
+    {% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <h2>出数快照（同一时点登记的固化结果）</h2>
+  {% if snapshots %}
+  <table>
+    <tr><th>快照号</th><th>出数时间（UTC）</th><th>HT 估计有误总数</th><th>标准误</th><th></th></tr>
+    {% for s in snapshots %}
+      {% set p = s["payload"] | fromjson %}
+      <tr>
+        <td>#{{ s["id"] }}</td>
+        <td>{{ s["taken_at"] }}</td>
+        <td>{{ "%.4f"|format(p.result.y_hat) }}</td>
+        <td>
+          {% if p.result.se_available %}{{ "%.4f"|format(p.result.se) }}
+          {% else %}<span class="na">不可用（估计方差为负）</span>{% endif %}
+        </td>
+        <td><a href="{{ url_for('snapshot_detail', snapshot_id=s['id']) }}">查看</a></td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">尚无出数快照。补齐全部结论并消除冲突后，可在出数页面保存快照。</p>
+  {% endif %}
+</div>
+
+{% if locked %}
+<div class="card">
+  <h2>重新演示</h2>
+  <p class="muted">清空全部名录、中签号、登记与快照，回到未锁定状态。该操作不可恢复。</p>
+  <form class="inline" method="post" action="{{ url_for('reset') }}"
+        onsubmit="return confirm('确认清空全部数据？');">
+    <button class="danger" type="submit">清空并重置</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

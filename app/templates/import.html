@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}导入与锁定{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>导入两份名录与中签号</h2>
+  <p class="muted">
+    名录 CSV 每行一件：<code>编号[,题名]</code>；中签号每行一个。可含表头。
+    两份名录允许重叠，同号藏品在并集中只算一件。每组抽签 2–200 件，须为名录内编号、组内不重复。
+    提交成功即首次登记，名录与中签号随即锁定。
+  </p>
+  <form method="post">
+    <div class="grid2">
+      <div>
+        <label for="roster_a">甲组名录（展出名录，CSV）</label>
+        <textarea id="roster_a" name="roster_a" required>{{ form.get("roster_a", "") }}</textarea>
+        <label for="draws_a">甲组中签号</label>
+        <textarea id="draws_a" name="draws_a" required style="min-height:110px">{{ form.get("draws_a", "") }}</textarea>
+      </div>
+      <div>
+        <label for="roster_b">乙组名录（待修复清单，CSV）</label>
+        <textarea id="roster_b" name="roster_b" required>{{ form.get("roster_b", "") }}</textarea>
+        <label for="draws_b">乙组中签号</label>
+        <textarea id="draws_b" name="draws_b" required style="min-height:110px">{{ form.get("draws_b", "") }}</textarea>
+      </div>
+    </div>
+    <p style="margin-top:16px">
+      <button type="submit">校验导入并锁定</button>
+      <button class="secondary" type="submit" name="action" value="demo">填入内置演示数据</button>
+    </p>
+  </form>
+</div>
+{% endblock %}

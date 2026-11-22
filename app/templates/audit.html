@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}更正审计{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>结论更正审计</h2>
+  {% if rows %}
+  <table>
+    <tr>
+      <th style="width:60px">#</th>
+      <th style="width:80px">分组</th>
+      <th style="width:110px">藏品编号</th>
+      <th style="width:110px">原结论</th>
+      <th style="width:110px">新结论</th>
+      <th>备注变化</th>
+      <th style="width:190px">变更时间（UTC）</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r["id"] }}</td>
+      <td>{{ "甲组" if r["grp"] == "A" else "乙组" }}</td>
+      <td>{{ r["catalog_id"] }}</td>
+      <td>
+        {% if r["old_conclusion"] == "error" %}<span class="badge b-error">有误</span>
+        {% elif r["old_conclusion"] == "ok" %}<span class="badge b-ok">无误</span>
+        {% else %}<span class="badge b-pending">未登记</span>{% endif %}
+      </td>
+      <td>
+        {% if r["new_conclusion"] == "error" %}<span class="badge b-error">有误</span>
+        {% else %}<span class="badge b-ok">无误</span>{% endif %}
+      </td>
+      <td>
+        <div class="muted">原：{{ r["old_note"] or "—" }}</div>
+        <div>新：{{ r["new_note"] or "—" }}</div>
+      </td>
+      <td>{{ r["changed_at"] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">暂无更正记录。首次登记不记为“更正”；仅在结论或备注发生变化时写入。</p>
+  {% endif %}
+</div>
+{% endblock %}

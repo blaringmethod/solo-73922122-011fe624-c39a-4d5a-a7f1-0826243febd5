@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}待核清单{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>待核藏品</h2>
+  <p class="muted">
+    补齐结论前、或同一藏品两组结论存在冲突时，只列出这些待核藏品；全部补齐且无冲突后本页为空，方可出数。
+  </p>
+  {% if rows %}
+  <table>
+    <tr>
+      <th style="width:110px">藏品编号</th>
+      <th>题名</th>
+      <th style="width:150px">甲组结论</th>
+      <th style="width:150px">乙组结论</th>
+      <th>待核原因</th>
+      <th style="width:170px">操作</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r["catalog_id"] }}</td>
+      <td>{{ r["title"] }}</td>
+      <td>
+        {% set a = r["groups"].get("A") %}
+        {% if a %}
+          {% if a["conclusion"] == "error" %}<span class="badge b-error">有误</span>
+          {% elif a["conclusion"] == "ok" %}<span class="badge b-ok">无误</span>
+          {% else %}<span class="badge b-pending">待登记</span>{% endif %}
+        {% else %}<span class="muted">未中签</span>{% endif %}
+      </td>
+      <td>
+        {% set b = r["groups"].get("B") %}
+        {% if b %}
+          {% if b["conclusion"] == "error" %}<span class="badge b-error">有误</span>
+          {% elif b["conclusion"] == "ok" %}<span class="badge b-ok">无误</span>
+          {% else %}<span class="badge b-pending">待登记</span>{% endif %}
+        {% else %}<span class="muted">未中签</span>{% endif %}
+      </td>
+      <td>
+        {% for reason in r["reasons"] %}<div class="badge b-pending" style="margin:2px 4px 2px 0">{{ reason }}</div>{% endfor %}
+      </td>
+      <td>
+        {% if a %}<a href="{{ url_for('register', grp='A') }}">去甲组登记</a><br>{% endif %}
+        {% if b %}<a href="{{ url_for('register', grp='B') }}">去乙组登记</a>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p><span class="badge b-ok">待核清单为空</span> 所有中签藏品均已登记且两组结论一致，可前往出数页面。</p>
+  <a class="btn" href="{{ url_for('results') }}">前往出数</a>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}出数 · HT 估计{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>抽样设计（已锁定）</h2>
+  <dl class="kv">
+    <dt>甲组（展出名录）</dt><dd>名录规模 N_A = {{ frame.N_a }}，不放回等概率抽签 n_A = {{ frame.n_a }}</dd>
+    <dt>乙组（待修复清单）</dt><dd>名录规模 N_B = {{ frame.N_b }}，不放回等概率抽签 n_B = {{ frame.n_b }}</dd>
+    <dt>估计总体</dt><dd>两份名录并集去重后 {{ frame.membership|length }} 件；同号只算一件</dd>
+  </dl>
+</div>
+
+{% if pending or conflict %}
+<div class="card">
+  <h2>暂不能出数</h2>
+  <p>
+    {% if pending %}<span class="badge b-pending">尚有 {{ pending }} 条结论未补齐</span>{% endif %}
+    {% if conflict %}<span class="badge b-error">存在两组结论冲突</span>{% endif %}
+  </p>
+  <p class="muted">出数以同一时点的登记为准；请先在待核清单中补齐并消除冲突。</p>
+  <a class="btn" href="{{ url_for('review') }}">前往待核清单</a>
+</div>
+{% else %}
+<div class="card">
+  <h2>Horvitz–Thompson 估计结果</h2>
+  <p class="muted">
+    一阶概率 π_i = 1−(1−a_i·n_A/N_A)(1−b_i·n_B/N_B)；
+    联合概率 π_ij 按两件藏品在两份名录中的归属，用不放回抽样的联合入样概率合成。
+  </p>
+  <dl class="kv">
+    <dt>判为有误的藏品</dt><dd>{{ result.flagged_count }} 件：{{ result.flagged | join("、") }}</dd>
+    <dt>有误总数 HT 估计 Ŷ</dt><dd><span class="big">{{ "%.4f"|format(result.y_hat) }}</span> 件</dd>
+    <dt>估计方差 V̂</dt>
+    <dd>
+      {{ "%.6f"|format(result.variance) }}
+      （对角项 {{ "%.6f"|format(result.diagonal) }}，交叉项 {{ "%.6f"|format(result.cross) }}）
+      {% if not result.se_available %}<div class="na">原始估计值 {{ "%.6f"|format(result.variance_raw) }} 为负，标准误不可用</div>{% endif %}
+    </dd>
+    <dt>抽样标准误</dt>
+    <dd>
+      {% if result.se_available %}{{ "%.4f"|format(result.se) }} 件
+      {% else %}<span class="na">不可用（估计方差为负）</span>{% endif %}
+    </dd>
+    {% if result.se_available %}
+    <dt>近似 95% 置信区间</dt><dd>[{{ "%.4f"|format(result.ci[0]) }}, {{ "%.4f"|format(result.ci[1]) }}]（正态近似，仅供参考）</dd>
+    {% endif %}
+  </dl>
+  <form method="post" action="{{ url_for('create_snapshot') }}">
+    <button type="submit">固化为出数时点快照</button>
+    <span class="muted">快照保存当前时点全部登记与计算结果，之后的更正不影响已存快照。</span>
+  </form>
+</div>
+
+<div class="card">
+  <h2>逐件入样概率与贡献</h2>
+  <table>
+    <tr><th>藏品编号</th><th>归属</th><th>π_i</th><th>结论</th><th>HT 贡献 y_i/π_i</th></tr>
+    {% for cid in result.item_ids %}
+      {% set mb = frame.membership[cid] %}
+      <tr>
+        <td>{{ cid }}</td>
+        <td>{% if mb[0] %}甲 {% endif %}{% if mb[1] %}乙{% endif %}</td>
+        <td>{{ "%.6f"|format(result.pi[cid]) }}</td>
+        <td>
+          {% if cid in result.flagged %}<span class="badge b-error">有误</span>
+          {% elif cid in frame.membership %}<span class="muted">无误 / 未中签（y=0）</span>{% endif %}
+        </td>
+        <td>{{ "%.4f"|format(1.0 / result.pi[cid]) if cid in result.flagged else "0" }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2>联合入样概率明细（仅有误藏品对）</h2>
+  <table>
+    <tr><th>藏品 i</th><th>藏品 j</th><th>π_i</th><th>π_j</th><th>π_ij</th><th>交叉项贡献</th></tr>
+    {% for p in result.pair_details %}
+    <tr>
+      <td>{{ p.i }}</td><td>{{ p.j }}</td>
+      <td>{{ "%.6f"|format(p.pi_i) }}</td>
+      <td>{{ "%.6f"|format(p.pi_j) }}</td>
+      <td>{{ "%.6f"|format(p.pi_ij) }}</td>
+      <td>{{ "%.6f"|format(p.term) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">判为有误的藏品不足两件，无交叉项。</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}
