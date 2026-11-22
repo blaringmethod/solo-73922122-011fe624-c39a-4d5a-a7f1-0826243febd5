@@ -5,20 +5,24 @@
   <h2>待核藏品</h2>
   <p class="muted">
     补齐结论前、或同一藏品两组结论存在冲突时，只列出这些待核藏品；全部补齐且无冲突后本页为空，方可出数。
+    拆开后甲件、乙件分别判定、分别检查是否待核，不再互相牵连。
   </p>
   {% if rows %}
   <table>
     <tr>
-      <th style="width:110px">藏品编号</th>
+      <th style="width:140px">藏品编号</th>
       <th>题名</th>
       <th style="width:150px">甲组结论</th>
       <th style="width:150px">乙组结论</th>
       <th>待核原因</th>
-      <th style="width:170px">操作</th>
+      <th style="width:190px">操作</th>
     </tr>
     {% for r in rows %}
     <tr>
-      <td>{{ r["catalog_id"] }}</td>
+      <td>
+        {{ r["label"] }}
+        {% if r["piece"] %}<span class="badge b-info">已拆开</span>{% endif %}
+      </td>
       <td>{{ r["title"] }}</td>
       <td>
         {% set a = r["groups"].get("A") %}
@@ -40,8 +44,8 @@
         {% for reason in r["reasons"] %}<div class="badge b-pending" style="margin:2px 4px 2px 0">{{ reason }}</div>{% endfor %}
       </td>
       <td>
-        {% if a %}<a href="{{ url_for('register', grp='A') }}">去甲组登记</a><br>{% endif %}
-        {% if b %}<a href="{{ url_for('register', grp='B') }}">去乙组登记</a>{% endif %}
+        {% if r["groups"].get("A") %}<a href="{{ url_for('register', grp='A') }}">去甲组登记</a>{% endif %}
+        {% if r["groups"].get("B") %}<a href="{{ url_for('register', grp='B') }}">去乙组登记</a>{% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -49,6 +53,49 @@
   {% else %}
   <p><span class="badge b-ok">待核清单为空</span> 所有中签藏品均已登记且两组结论一致，可前往出数页面。</p>
   <a class="btn" href="{{ url_for('results') }}">前往出数</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>共有编号拆分 / 并回</h2>
+  <p class="muted">
+    两份名录把同一编号给了两件藏品时，可在此拆开：拆分后甲件只归甲名录、乙件只归乙名录，
+    各自沿用本组的中签号与登记；两组原名录、中签号与登记始终保留。
+    拆开或并回都只改归属标记，不动任何一组已登记的结论。
+  </p>
+  {% if split_ids %}
+  <p class="muted">当前已拆开的编号：{% for cid in split_ids %}<span class="badge b-info">{{ cid }}</span> {% endfor %}</p>
+  {% endif %}
+
+  {% if shared %}
+  <table>
+    <tr><th style="width:130px">共有编号</th><th>甲名录题名</th><th>乙名录题名</th><th>中签情况</th><th style="width:230px">操作</th></tr>
+    {% for u in shared %}
+    <tr>
+      <td>{{ u.catalog_id }}{% if u.split %}<br><span class="badge b-info">已拆开</span>{% endif %}</td>
+      <td>{{ u.title_a or "—" }}</td>
+      <td>{{ u.title_b or "—" }}</td>
+      <td>{% if u.drawn_a %}甲组中签{% endif %}{% if u.drawn_a and u.drawn_b %}、{% endif %}{% if u.drawn_b %}乙组中签{% endif %}{% if not u.drawn_a and not u.drawn_b %}<span class="muted">两组均未中签</span>{% endif %}</td>
+      <td>
+        {% if u.split %}
+        <form class="inline" method="post" action="{{ url_for('merge_registration') }}"
+              onsubmit="return confirm('确认并回 {{ u.catalog_id }}？');">
+          <input type="hidden" name="catalog_id" value="{{ u.catalog_id }}">
+          <button class="secondary" type="submit">并回同号</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('split_registration') }}">
+          <input type="hidden" name="catalog_id" value="{{ u.catalog_id }}">
+          <input type="text" name="operator" placeholder="经办人（可选）" style="max-width:120px;display:inline-block">
+          <button type="submit">拆为甲、乙两件</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">当前没有任何两份名录共有的编号，无需拆分。</p>
   {% endif %}
 </div>
 {% endblock %}

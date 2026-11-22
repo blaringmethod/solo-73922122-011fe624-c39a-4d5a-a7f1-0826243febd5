@@ -57,13 +57,18 @@ class WebFlowTests(unittest.TestCase):
             conn = db.connect(self.tmp.name)
             db.upsert_registration(conn, "B", "C011", "ok", "复核后维持无误")
             conn.close()
+        # 待核表已无 C011（拆分/并回区的“共有编号”表仍会列出入选编号）
         r = self.client.get("/review")
-        self.assertNotIn("C011".encode(), r.data)
+        self.assertIn("待核清单为空".encode(), r.data)
+        self.assertNotIn("两组结论冲突".encode(), r.data)
 
-        # 出数页展示 HT 结果并可固化快照
+        # 出数页展示 HT 结果并可固化快照（用页面上本次取数的修订号令牌）
         r = self.client.get("/results")
         self.assertIn("Horvitz".encode(), r.data)
-        r = self.client.post("/snapshots", follow_redirects=True)
+        import re
+        token = int(re.search(rb'name="revision" value="(\d+)"', r.data).group(1))
+        r = self.client.post("/snapshots", data={"revision": token},
+                             follow_redirects=True)
         self.assertEqual(r.status_code, 200)
         self.assertIn("出数时点快照".encode(), r.data)
 

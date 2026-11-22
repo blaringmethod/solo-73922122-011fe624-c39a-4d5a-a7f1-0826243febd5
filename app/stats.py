@@ -97,14 +97,21 @@ def estimate(frame: Frame, y: Mapping[str, int]) -> dict:
 
     参数 y 仅包含已有结论的中签藏品（1=有误，0=无误）；未中签藏品 y=0，
     对估计量无贡献。返回完整的计算结果与逐件明细。
+
+    π_i 可能为 0（某藏品不在任何被抽样的名录内）时不进入总体，也不参与
+    求和；拆分后的甲、乙件只按其所属名录的归属计算。
     """
     items = sorted(frame.membership)
     pi = {
         item_id: inclusion_probability(*frame.membership[item_id], frame)
         for item_id in items
     }
+    # 只有 π_i > 0 的藏品才是可估计的总体；π_i=0 的藏品无法入样
+    estimable = [item_id for item_id in items if pi[item_id] > 0]
 
-    flagged = [item_id for item_id in items if y.get(item_id) == 1]
+    flagged = [
+        item_id for item_id in estimable if y.get(item_id) == 1
+    ]
     y_hat = sum(1.0 / pi[item_id] for item_id in flagged)
 
     # 方差：对角项 + 交叉项（交叉项按 i<j 求和后乘 2）
@@ -114,14 +121,25 @@ def estimate(frame: Frame, y: Mapping[str, int]) -> dict:
     for k, i in enumerate(flagged):
         for j in flagged[k + 1:]:
             pij = joint_inclusion_probability(i, j, frame)
-            term = 2.0 * (pij - pi[i] * pi[j]) / (pij * pi[i] * pi[j])
+            pi_i, pi_j = pi[i], pi[j]
+            if pij <= 0:
+                # 两件不可能同时入样：交叉项按理论极限记 0，页面会注明
+                term = 0.0
+                pair_details.append(
+                    {
+                        "i": i, "j": j, "pi_i": pi_i, "pi_j": pi_j,
+                        "pi_ij": 0.0, "term": 0.0, "note": "π_ij=0，不可同时入样",
+                    }
+                )
+                continue
+            term = 2.0 * (pij - pi_i * pi_j) / (pij * pi_i * pi_j)
             cross += term
             pair_details.append(
                 {
                     "i": i,
                     "j": j,
-                    "pi_i": pi[i],
-                    "pi_j": pi[j],
+                    "pi_i": pi_i,
+                    "pi_j": pi_j,
                     "pi_ij": pij,
                     "term": term,
                 }

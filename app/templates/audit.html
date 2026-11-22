@@ -40,4 +40,33 @@
   <p class="muted">暂无更正记录。首次登记不记为“更正”；仅在结论或备注发生变化时写入。</p>
   {% endif %}
 </div>
+
+<div class="card">
+  <h2>共有编号拆分 / 并回审计</h2>
+  {% if split_rows %}
+  <table>
+    <tr>
+      <th style="width:60px">#</th>
+      <th style="width:110px">操作</th>
+      <th style="width:130px">藏品编号</th>
+      <th>说明</th>
+      <th style="width:190px">时间（UTC）</th>
+    </tr>
+    {% for r in split_rows %}
+    <tr>
+      <td>{{ r["id"] }}</td>
+      <td>
+        {% if r["action"] == "split" %}<span class="badge b-info">拆开</span>
+        {% else %}<span class="badge b-lock">并回</span>{% endif %}
+      </td>
+      <td>{{ r["catalog_id"] }}</td>
+      <td>{{ r["detail"] }}</td>
+      <td>{{ r["changed_at"] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">暂无拆分或并回记录。</p>
+  {% endif %}
+</div>
 {% endblock %}

@@ -6,6 +6,7 @@
   <h2>{{ gname }}中签藏品著录复核登记</h2>
   <p class="muted">
     共 {{ rows|length }} 件中签，已登记 {{ filled }} 件。整表填写后一次保存；结论可随时更正，每次变更写入审计。
+    {% if split_ids %}已拆开的共有编号在本组按“{{ piece }}”单独登记，另一件由另一组登记。{% endif %}
   </p>
   <form class="inline" method="post" action="{{ url_for('register_demo', grp=grp) }}">
     <button class="secondary" type="submit">一键填入演示结论</button>
@@ -32,6 +33,9 @@
         </td>
         <td><input type="text" name="note-{{ r['catalog_id'] }}" value="{{ r['note'] or '' }}" placeholder="依据、更正说明（可选）"></td>
         <td>
+          {% if r["catalog_id"] in split_ids %}
+            <span class="badge b-info">已拆：{{ piece }}</span><br>
+          {% endif %}
           {% if r["conclusion"] == "error" %}<span class="badge b-error">有误</span>
           {% elif r["conclusion"] == "ok" %}<span class="badge b-ok">无误</span>
           {% else %}<span class="badge b-pending">待登记</span>{% endif %}

@@ -2,6 +2,8 @@
 {% block title %}出数快照 #{{ snapshot["id"] }}{% endblock %}
 {% block content %}
 {% set r = payload.result %}
+{% set meta = payload.unit_meta | default({}, true) %}
+{% set split_ids = payload.split_ids | default([], true) %}
 <div class="card">
   <h2>出数时点快照 #{{ snapshot["id"] }}</h2>
   <dl class="kv">
@@ -12,6 +14,16 @@
       乙组 N={{ payload.frame.N_b }}, n={{ payload.frame.n_b }}；
       并集 {{ payload.frame.union_size }} 件
     </dd>
+    <dt>当时拆开的共有编号</dt>
+    <dd>
+      {% if split_ids %}
+        {% for cid in split_ids %}<span class="badge b-info">{{ cid }}</span> {% endfor %}
+        <span class="muted">甲件、乙件分别计件；本快照结果按拆分后的归属计算。</span>
+      {% else %}
+        <span class="muted">无（当时没有拆开的共有编号）</span>
+      {% endif %}
+    </dd>
+    <dt>状态修订号</dt><dd>{{ payload.revision | default("（旧快照未记录）", true) }}</dd>
     <dt>有误总数 HT 估计</dt><dd><span class="big">{{ "%.4f"|format(r.y_hat) }}</span> 件</dd>
     <dt>估计方差</dt>
     <dd>{{ "%.6f"|format(r.variance) }}
@@ -32,12 +44,20 @@
   <h2>时点登记结论（固化）</h2>
   <table>
     <tr><th>藏品编号</th><th>结论 y</th><th>π_i</th><th>HT 贡献</th></tr>
-    {% for cid in r.item_ids %}
+    {% for key in r.item_ids %}
+    {% set m = meta.get(key) %}
     <tr>
-      <td>{{ cid }}</td>
-      <td>{% if cid in r.flagged %}<span class="badge b-error">有误 (1)</span>{% else %}无误/未中签 (0){% endif %}</td>
-      <td>{{ "%.6f"|format(r.pi[cid]) }}</td>
-      <td>{{ "%.4f"|format(1.0 / r.pi[cid]) if cid in r.flagged else "0" }}</td>
+      <td>
+        {% if m %}{{ m.label }}{% else %}{{ key }}{% endif %}
+        {% if m and m.piece %}<span class="badge b-info">已拆开</span>{% endif %}
+      </td>
+      <td>
+        {% if r.pi[key] == 0 %}<span class="muted">π_i=0，未入样</span>
+        {% elif key in r.flagged %}<span class="badge b-error">有误 (1)</span>
+        {% else %}无误/未中签 (0){% endif %}
+      </td>
+      <td>{{ "%.6f"|format(r.pi[key]) }}</td>
+      <td>{{ "%.4f"|format(1.0 / r.pi[key]) if key in r.flagged else "0" }}</td>
     </tr>
     {% endfor %}
   </table>

@@ -6,7 +6,7 @@
   <dl class="kv">
     <dt>甲组（展出名录）</dt><dd>名录规模 N_A = {{ frame.N_a }}，不放回等概率抽签 n_A = {{ frame.n_a }}</dd>
     <dt>乙组（待修复清单）</dt><dd>名录规模 N_B = {{ frame.N_b }}，不放回等概率抽签 n_B = {{ frame.n_b }}</dd>
-    <dt>估计总体</dt><dd>两份名录并集去重后 {{ frame.membership|length }} 件；同号只算一件</dd>
+    <dt>估计总体</dt><dd>当前按藏品单元计共 {{ frame.membership|length }} 件{% if splits %}（其中 {{ splits|length }} 个共有编号已拆为甲、乙两件）{% else %}；同号只算一件{% endif %}</dd>
   </dl>
 </div>
 
@@ -14,7 +14,7 @@
 <div class="card">
   <h2>暂不能出数</h2>
   <p>
-    {% if pending %}<span class="badge b-pending">尚有 {{ pending }} 条结论未补齐</span>{% endif %}
+    {% if pending %}<span class="badge b-pending">尚有 {{ pending }} 件藏品待核</span>{% endif %}
     {% if conflict %}<span class="badge b-error">存在两组结论冲突</span>{% endif %}
   </p>
   <p class="muted">出数以同一时点的登记为准；请先在待核清单中补齐并消除冲突。</p>
@@ -26,9 +26,10 @@
   <p class="muted">
     一阶概率 π_i = 1−(1−a_i·n_A/N_A)(1−b_i·n_B/N_B)；
     联合概率 π_ij 按两件藏品在两份名录中的归属，用不放回抽样的联合入样概率合成。
+    拆分后的甲件只计甲名录、乙件只计乙名录，因此 π_i 与 π_ij 均按更新后的归属重算。
   </p>
   <dl class="kv">
-    <dt>判为有误的藏品</dt><dd>{{ result.flagged_count }} 件：{{ result.flagged | join("、") }}</dd>
+    <dt>判为有误的藏品</dt><dd>{{ result.flagged_count }} 件：{{ result.flagged_labels | join("、") }}</dd>
     <dt>有误总数 HT 估计 Ŷ</dt><dd><span class="big">{{ "%.4f"|format(result.y_hat) }}</span> 件</dd>
     <dt>估计方差 V̂</dt>
     <dd>
@@ -45,9 +46,19 @@
     <dt>近似 95% 置信区间</dt><dd>[{{ "%.4f"|format(result.ci[0]) }}, {{ "%.4f"|format(result.ci[1]) }}]（正态近似，仅供参考）</dd>
     {% endif %}
   </dl>
+  {% if splits %}
+  <p class="muted">
+    本次按拆分后的归属取数：{% for cid in splits.keys() %}<span class="badge b-info">{{ cid }}</span> {% endfor %}
+    的甲件、乙件分别计件，π_i、π_ij、HT 估计与标准误均已按两件的各自归属重算。
+  </p>
+  {% endif %}
   <form method="post" action="{{ url_for('create_snapshot') }}">
+    <input type="hidden" name="revision" value="{{ revision }}">
     <button type="submit">固化为出数时点快照</button>
-    <span class="muted">快照保存当前时点全部登记与计算结果，之后的更正不影响已存快照。</span>
+    <span class="muted">
+      快照保存本次取数（状态修订号 {{ revision }}）的全部登记与计算结果；本次取数之后
+      若拆分状态或登记结论有变（即使改回原值），保存会被拒绝并要求刷新，快照列表不会新增记录。
+    </span>
   </form>
 </div>
 
@@ -55,17 +66,22 @@
   <h2>逐件入样概率与贡献</h2>
   <table>
     <tr><th>藏品编号</th><th>归属</th><th>π_i</th><th>结论</th><th>HT 贡献 y_i/π_i</th></tr>
-    {% for cid in result.item_ids %}
-      {% set mb = frame.membership[cid] %}
+    {% for key in result.item_ids %}
+      {% set meta = unit_meta[key] %}
+      {% set mb = frame.membership[key] %}
       <tr>
-        <td>{{ cid }}</td>
-        <td>{% if mb[0] %}甲 {% endif %}{% if mb[1] %}乙{% endif %}</td>
-        <td>{{ "%.6f"|format(result.pi[cid]) }}</td>
         <td>
-          {% if cid in result.flagged %}<span class="badge b-error">有误</span>
-          {% elif cid in frame.membership %}<span class="muted">无误 / 未中签（y=0）</span>{% endif %}
+          {{ meta.label }}
+          {% if meta.piece %}<span class="badge b-info">已拆开</span>{% endif %}
         </td>
-        <td>{{ "%.4f"|format(1.0 / result.pi[cid]) if cid in result.flagged else "0" }}</td>
+        <td>{% if mb[0] %}甲 {% endif %}{% if mb[1] %}乙{% endif %}</td>
+        <td>{{ "%.6f"|format(result.pi[key]) }}</td>
+        <td>
+          {% if result.pi[key] == 0 %}<span class="muted">π_i=0，未入样，不参与估计</span>
+          {% elif key in result.flagged %}<span class="badge b-error">有误</span>
+          {% else %}<span class="muted">无误 / 未中签（y=0）</span>{% endif %}
+        </td>
+        <td>{{ "%.4f"|format(1.0 / result.pi[key]) if key in result.flagged else "0" }}</td>
       </tr>
     {% endfor %}
   </table>
@@ -75,13 +91,13 @@
   <h2>联合入样概率明细（仅有误藏品对）</h2>
   <table>
     <tr><th>藏品 i</th><th>藏品 j</th><th>π_i</th><th>π_j</th><th>π_ij</th><th>交叉项贡献</th></tr>
-    {% for p in result.pair_details %}
+    {% for p in result.pair_labels %}
     <tr>
       <td>{{ p.i }}</td><td>{{ p.j }}</td>
       <td>{{ "%.6f"|format(p.pi_i) }}</td>
       <td>{{ "%.6f"|format(p.pi_j) }}</td>
       <td>{{ "%.6f"|format(p.pi_ij) }}</td>
-      <td>{{ "%.6f"|format(p.term) }}</td>
+      <td>{{ "%.6f"|format(p.term) }}{% if p.note %}<div class="muted">{{ p.note }}</div>{% endif %}</td>
     </tr>
     {% else %}
     <tr><td colspan="6" class="muted">判为有误的藏品不足两件，无交叉项。</td></tr>

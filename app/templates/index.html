@@ -16,10 +16,10 @@
     </dd>
     {% if locked %}
     <dt>名录规模</dt>
-    <dd>甲名录 {{ meta["n_a"] }} 件中签；乙名录 {{ meta["n_b"] }} 件中签；并集去重后共 {{ item_count }} 件</dd>
+    <dd>甲名录 {{ meta["n_a"] }} 件中签；乙名录 {{ meta["n_b"] }} 件中签；按藏品单元共 {{ item_count }} 件{% if split_count %}（{{ split_count }} 个共有编号已拆为甲、乙两件）{% endif %}</dd>
     <dt>登记进度</dt>
     <dd>
-      待登记/待核 <strong>{{ pending }}</strong> 条；
+      待登记/待核 <strong>{{ pending }}</strong> 件；
       {% if conflict %}<span class="badge b-error">存在两组结论冲突</span>{% else %}<span class="badge b-ok">无冲突</span>{% endif %}
     </dd>
     {% endif %}
